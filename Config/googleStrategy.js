@@ -4,6 +4,8 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import UserModel from "../Models/UserModel.js";
 
 const GOOGLE_PASSWORD_SALT_ROUNDS = 10;
+const normalizeGoogleRoleContext = (value) =>
+  String(value || "user").toLowerCase() === "owner" ? "owner" : "user";
 
 const createGooglePassword = async () => {
   const randomSeed = `${Date.now()}-${Math.random()}-google-oauth`;
@@ -29,9 +31,11 @@ const configureGoogleStrategy = () => {
         clientID,
         clientSecret,
         callbackURL,
+        passReqToCallback: true,
       },
-      async (_accessToken, _refreshToken, profile, done) => {
+      async (req, _accessToken, _refreshToken, profile, done) => {
         try {
+          const requestedRole = normalizeGoogleRoleContext(req?.query?.state);
           const email = String(profile?.emails?.[0]?.value || "")
             .trim()
             .toLowerCase();
@@ -48,7 +52,7 @@ const configureGoogleStrategy = () => {
               name: String(profile.displayName || email.split("@")[0] || "Google User").trim(),
               email,
               password: await createGooglePassword(),
-              role: "user",
+              role: requestedRole === "owner" ? "owner" : "user",
               isActive: true,
               profilePicture: googleAvatar,
             });
