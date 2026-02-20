@@ -12,6 +12,7 @@ import {
   deleteUser,
 } from "../Controller/Accounts.js";
 import { verifyToken } from "../Middlewares/jwt.js";
+import { uploadProfileImage } from "../Middlewares/profileUpload.js";
 
 const AccountRoutes = (basePath, app) => {
   app.post(`${basePath}/register`, createUser);
@@ -24,7 +25,7 @@ const AccountRoutes = (basePath, app) => {
   app.post(`${basePath}/login/owner`, LogInOwnerAccount);
 
   app.get(`${basePath}/me`, verifyToken, getMe);
-  app.put(`${basePath}/:id`, verifyToken, updateUser);
+  app.put(`${basePath}/:id`, verifyToken, uploadProfileImage, updateUser);
   app.delete(`${basePath}/:id`, verifyToken, deleteUser);
 };
 

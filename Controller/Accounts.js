@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import UserModel from "../Models/UserModel.js";
 import { generateToken } from "../Middlewares/jwt.js";
 import { sendOtpEmail } from "../Config/EmailService.js";
+import { uploadBufferToCloudinary } from "../Utils/cloudinaryUpload.js";
 
 const SALT_ROUNDS = 10;
 const OTP_LENGTH = 4;
@@ -443,6 +444,8 @@ export const updateUser = async (req, res) => {
     const nextName = String(req.body.name || req.body.fullName || "").trim();
     const nextEmail = String(req.body.email || "").trim().toLowerCase();
     const nextProfilePicture = String(req.body.profilePicture || "").trim();
+    const removeProfilePicture =
+      String(req.body.removeProfilePicture || "").toLowerCase() === "true";
 
     if (nextName) user.name = nextName;
 
@@ -454,8 +457,26 @@ export const updateUser = async (req, res) => {
       user.email = nextEmail;
     }
 
-    if (nextProfilePicture) {
-      user.profilePicture = nextProfilePicture;
+    if (req.file?.buffer) {
+      const uploadedProfilePicture = await uploadBufferToCloudinary(req.file, {
+        folder: "users/profile-pictures",
+        resourceType: "image",
+      });
+      user.profilePicture = uploadedProfilePicture.secure_url;
+    } else {
+      if (removeProfilePicture) {
+        user.profilePicture = null;
+      }
+
+      if (nextProfilePicture) {
+        if (nextProfilePicture.startsWith("data:")) {
+          return res.status(400).json({
+            message:
+              "Base64 image payload is not supported for profile update. Upload image as file.",
+          });
+        }
+        user.profilePicture = nextProfilePicture;
+      }
     }
 
     const newPassword = String(req.body.newPassword || req.body.password || "");
@@ -492,7 +513,7 @@ export const updateUser = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating user:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: error.message || "Internal server error" });
   }
 };
 
